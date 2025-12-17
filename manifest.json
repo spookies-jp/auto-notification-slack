@@ -1,7 +1,7 @@
 {
     "name": "Auto Notifier Slack",
     "description": "アクセスしたURLをSlackに通知する",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "manifest_version": 3,
     "host_permissions": [
         "https://hooks.slack.com/*"
