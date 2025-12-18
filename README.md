@@ -1,12 +1,13 @@
 # 閲覧なう
 
-閲覧したWebページのURLを、SlackのIncoming Webhookに通知するChrome拡張です。ページ表示後に確認ダイアログを出し、OKした場合のみ送信します。
+閲覧したWebページのURLを、SlackのIncoming Webhookに通知するChrome拡張です。拡張機能アイコンを押すと小さい送信ダイアログが開き、任意メッセージを添付して送信できます。
 
 ## できること
 
 - 現在開いているタブのURLをSlackへ通知
-- 送信前に確認（confirm）ダイアログを表示
+- 送信時に任意メッセージを添付（メンション等）
 - `denyList`（部分一致）に該当するURLは送信対象から除外
+- Webhook URLを複数登録して切り替え（設定は永続化）
 
 ## 動作環境
 
@@ -19,18 +20,9 @@
 
 Slack側でIncoming Webhook URLを発行し、通知先チャンネルを紐づけてください。
 
-### 2) `src/config.ts` を編集
+### 2) `denyList`（任意）
 
-`src/config.ts` の `webHookUrl` をWebhook URLに置き換え、必要に応じて `denyList` を設定します。
-
-```js
-export const config = {
-  webHookUrl: "https://hooks.slack.com/services/XXX/YYY/ZZZ",
-  denyList: [
-    "example.com",
-  ],
-};
-```
+必要に応じて `src/config.ts` の `denyList` を編集します（部分一致）。
 
 ### 3) ビルド
 
@@ -38,6 +30,7 @@ Node.js を用意して、依存関係をインストール → TypeScriptをビ
 
 ```sh
 npm install
+npm run clean
 npm run build
 ```
 
@@ -52,10 +45,15 @@ npm run build
 ## 使い方
 
 1. 任意のページを開く
-2. 「このURLをSlackに送信しますか？」の確認でOKを押す
-3. SlackにURLが投稿されます
+2. 拡張機能アイコンを押して送信ダイアログを開く
+3. 必要ならメッセージを入力して「Slackへ送信」を押す
+4. SlackにURLが投稿されます
 
-※ `denyList` に該当するURLでは確認ダイアログ自体が出ません。
+※ `denyList` に該当するURLでは送信できません。
+
+### Webhook設定（永続化）
+
+送信ダイアログの「設定」タブで Webhook を保存し、選択肢から切り替えできます。
 
 ## 配布（管理者向け：ZIP化）
 
@@ -66,6 +64,14 @@ npm run build
 ```sh
 npm run build
 zip -r auto-notification-slack.zip manifest.json dist README.md
+```
+
+この拡張は `popup.html` / `popup.css` も必要です。
+
+```sh
+npm run clean
+npm run build
+zip -r auto-notification-slack.zip manifest.json popup.html popup.css dist README.md
 ```
 
 利用者には「ZIPを展開して、拡張機能を読み込む」手順で案内してください。
@@ -79,9 +85,8 @@ zip -r auto-notification-slack.zip manifest.json dist README.md
 
 ## セキュリティ/運用上の注意
 
-- Incoming Webhook URLは秘密情報です。`src/config.ts` に含めて配布する場合、配布先の範囲＝Webhookを利用できる範囲になります。
+- Incoming Webhook URLは秘密情報です。配布する場合、配布先の範囲＝Webhookを利用できる範囲になります。
 - URLに機密情報（チケットID、検索条件、トークン等）が含まれる場合があります。必要に応じて `denyList` を強化してください。
-- この拡張は `"<all_urls>"` を対象に動作します。特定ドメインだけに限定したい場合は `manifest.json` の `content_scripts.matches` を調整してください。
 
 ## カスタマイズ
 
@@ -90,5 +95,5 @@ zip -r auto-notification-slack.zip manifest.json dist README.md
 
 ## トラブルシューティング
 
-- Slackに届かない：`src/config.ts` の `webHookUrl` が空/誤り、またはWebhookが無効化されていないか確認してください
-- 確認ダイアログが出ない：URLが `denyList` に該当していないか確認してください
+- Slackに届かない：設定タブでWebhook URLを保存したか、Webhookが無効化されていないか確認してください
+- 送信できない：URLが `denyList` に該当していないか確認してください

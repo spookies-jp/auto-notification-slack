@@ -1,22 +1,25 @@
-import { config } from "./config.js";
+import { config, isDeniedUrl } from "./config.js";
+import { getActiveWebhookUrl } from "./webhookStore.js";
 
-type ConfirmMessage = { name: "confirm"; url: string };
-type NotifySlackMessage = { name: "notify_slack"; url: string };
-type Message = ConfirmMessage | NotifySlackMessage;
+type NotifySlackMessage = { name: "notify_slack"; url: string; message?: string };
+type Message = NotifySlackMessage;
 
-type ConfirmResponse = { url: string } | undefined;
 type NotifyResponse = { ok: true } | { ok: false; error: string };
 
-function isNotInDenyList(url: string): boolean {
-  const denyList = config.denyList ?? [];
-  return !denyList.some((item) => url.includes(item));
+function buildSlackText(input: { url: string; message?: string }): string {
+  const extra = (input.message ?? "").trim();
+  if (extra) return `${extra}\n${input.url}`;
+  return `閲覧なう\n${input.url}`;
 }
 
-async function notifySlack(url: string): Promise<void> {
-  const webHookUrl = config.webHookUrl;
-  if (!webHookUrl) return;
+async function notifySlack(input: { url: string; message?: string }): Promise<void> {
+  if (!input.url) throw new Error("URL が空です");
+  if (isDeniedUrl(input.url)) throw new Error("denyList に該当するため送信できません");
 
-  const payload = { text: `閲覧なう\n${url}` };
+  const webHookUrl = await getActiveWebhookUrl(config.webHookUrl);
+  if (!webHookUrl) throw new Error("Webhook URL が未設定です（設定タブで保存してください）");
+
+  const payload = { text: buildSlackText(input) };
   const response = await fetch(webHookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,28 +30,15 @@ async function notifySlack(url: string): Promise<void> {
   }
 }
 
-chrome.runtime.onMessage.addListener(
-  (message: Message, _sender, sendResponse): true | void => {
-    if (message.name === "confirm") {
-      if (!message.url || !isNotInDenyList(message.url)) {
-        sendResponse(undefined satisfies ConfirmResponse);
-        return;
-      }
-      sendResponse({ url: message.url } satisfies ConfirmResponse);
-      return;
-    }
+chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse): true | void => {
+  if (message.name !== "notify_slack") return;
 
-    if (message.name === "notify_slack") {
-      void notifySlack(message.url)
-        .then(() => sendResponse({ ok: true } satisfies NotifyResponse))
-        .catch((error: unknown) => {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          console.error(errorMessage);
-          sendResponse({ ok: false, error: errorMessage } satisfies NotifyResponse);
-        });
-      return true;
-    }
-  },
-);
-
+  void notifySlack({ url: message.url, message: message.message })
+    .then(() => sendResponse({ ok: true } satisfies NotifyResponse))
+    .catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(errorMessage);
+      sendResponse({ ok: false, error: errorMessage } satisfies NotifyResponse);
+    });
+  return true;
+});

@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Clean
+        run: npm run clean
+
       - name: Build (TypeScript)
         run: npm run build
 
@@ -61,6 +64,8 @@ jobs:
           set -euo pipefail
           zip -r "${{ steps.meta.outputs.zip }}" \
             manifest.json \
+            popup.html \
+            popup.css \
             dist \
             README.md
 
