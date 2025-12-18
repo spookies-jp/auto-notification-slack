@@ -7,17 +7,14 @@
         "https://hooks.slack.com/*"
     ],
     "background": {
-        "service_worker": "background.js",
+        "service_worker": "dist/background.js",
         "type": "module"
     },
-    "permissions": [
-        "tabs", "scripting"
-    ],
     "content_scripts": [
         {
             "run_at":"document_end",
             "matches": ["<all_urls>"],
-            "js": ["contentScript.js"]
+            "js": ["dist/contentScript.js"]
         }
     ]
 }

@@ -19,9 +19,9 @@
 
 Slack側でIncoming Webhook URLを発行し、通知先チャンネルを紐づけてください。
 
-### 2) `config.js` を編集
+### 2) `src/config.ts` を編集
 
-`config.js` の `webHookUrl` をWebhook URLに置き換え、必要に応じて `denyList` を設定します。
+`src/config.ts` の `webHookUrl` をWebhook URLに置き換え、必要に応じて `denyList` を設定します。
 
 ```js
 export const config = {
@@ -30,6 +30,15 @@ export const config = {
     "example.com",
   ],
 };
+```
+
+### 3) ビルド
+
+Node.js を用意して、依存関係をインストール → TypeScriptをビルドします。
+
+```sh
+npm install
+npm run build
 ```
 
 ## インストール（利用者向け）
@@ -50,12 +59,13 @@ export const config = {
 
 ## 配布（管理者向け：ZIP化）
 
-配布対象は拡張機能のファイル一式です（`.git` は不要）。
+配布対象は拡張機能のファイル一式です（`.git` や `src/` は不要）。
 
 例：
 
 ```sh
-zip -r auto-notification-slack.zip manifest.json background.js contentScript.js config.js
+npm run build
+zip -r auto-notification-slack.zip manifest.json dist README.md
 ```
 
 利用者には「ZIPを展開して、拡張機能を読み込む」手順で案内してください。
@@ -69,16 +79,16 @@ zip -r auto-notification-slack.zip manifest.json background.js contentScript.js 
 
 ## セキュリティ/運用上の注意
 
-- Incoming Webhook URLは秘密情報です。`config.js` に含めて配布する場合、配布先の範囲＝Webhookを利用できる範囲になります。
+- Incoming Webhook URLは秘密情報です。`src/config.ts` に含めて配布する場合、配布先の範囲＝Webhookを利用できる範囲になります。
 - URLに機密情報（チケットID、検索条件、トークン等）が含まれる場合があります。必要に応じて `denyList` を強化してください。
 - この拡張は `"<all_urls>"` を対象に動作します。特定ドメインだけに限定したい場合は `manifest.json` の `content_scripts.matches` を調整してください。
 
 ## カスタマイズ
 
-- 送信文言：`background.js` の `payload.text` を編集
-- 除外条件：`config.js` の `denyList`（文字列の部分一致）を編集
+- 送信文言：`src/background.ts` の `payload.text` を編集
+- 除外条件：`src/config.ts` の `denyList`（文字列の部分一致）を編集
 
 ## トラブルシューティング
 
-- Slackに届かない：`config.js` の `webHookUrl` が空/誤り、またはWebhookが無効化されていないか確認してください
+- Slackに届かない：`src/config.ts` の `webHookUrl` が空/誤り、またはWebhookが無効化されていないか確認してください
 - 確認ダイアログが出ない：URLが `denyList` に該当していないか確認してください
