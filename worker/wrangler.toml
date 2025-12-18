@@ -1,0 +1,11 @@
+name = "auto-notification-slack"
+main = "src/index.ts"
+compatibility_date = "2025-12-18"
+
+[vars]
+# Require Cloudflare Access JWT header in production (recommended).
+# For local dev with `wrangler dev`, set this to "false".
+REQUIRE_CLOUDFLARE_ACCESS = "true"
+
+# Set via `wrangler secret put`:
+# - SLACK_BOT_TOKEN

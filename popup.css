@@ -60,6 +60,13 @@ body {
   margin-bottom: 8px;
 }
 
+.row-inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .label {
   color: var(--muted);
 }
@@ -150,4 +157,3 @@ body {
   color: var(--muted);
   font-size: 12px;
 }
-

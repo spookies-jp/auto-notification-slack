@@ -1,5 +1,5 @@
-import { config, isDeniedUrl } from "./config.js";
-import { getActiveWebhookUrl } from "./webhookStore.js";
+import { isDeniedUrl } from "./config.js";
+import { getActiveDestination } from "./destinationStore.js";
 
 type NotifySlackMessage = { name: "notify_slack"; url: string; message?: string };
 type Message = NotifySlackMessage;
@@ -16,17 +16,24 @@ async function notifySlack(input: { url: string; message?: string }): Promise<vo
   if (!input.url) throw new Error("URL が空です");
   if (isDeniedUrl(input.url)) throw new Error("denyList に該当するため送信できません");
 
-  const webHookUrl = await getActiveWebhookUrl(config.webHookUrl);
-  if (!webHookUrl) throw new Error("Webhook URL が未設定です（設定タブで保存してください）");
+  const destination = await getActiveDestination();
+  if (!destination) throw new Error("送信先が未設定です（設定タブで保存してください）");
+  if (!destination.workerUrl) throw new Error("Worker URL が未設定です");
+  if (!destination.channelId) throw new Error("Channel が未設定です");
 
-  const payload = { text: buildSlackText(input) };
-  const response = await fetch(webHookUrl, {
+  const payload = { url: input.url, message: input.message, text: buildSlackText(input), channel: destination.channelId };
+  const response = await fetch(`${destination.workerUrl}/api/post`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`Slack webhook request failed: ${response.status}`);
+    const text = await response.text().catch(() => "");
+    if (response.status === 401) {
+      throw new Error("Cloudflare Access にログインしてください（設定タブのログインボタン）");
+    }
+    throw new Error(`Worker request failed: ${response.status}${text ? ` (${text})` : ""}`);
   }
 }
 

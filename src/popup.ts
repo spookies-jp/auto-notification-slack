@@ -1,11 +1,11 @@
-import { config, isDeniedUrl } from "./config.js";
+import { isDeniedUrl } from "./config.js";
 import {
-  deleteWebhook,
-  initWebhookStateIfNeeded,
-  setActiveWebhookId,
-  upsertWebhook,
-  type WebhookState,
-} from "./webhookStore.js";
+  deleteDestination,
+  initDestinationStateIfNeeded,
+  setActiveDestinationId,
+  upsertDestination,
+  type DestinationState,
+} from "./destinationStore.js";
 
 type NotifySlackMessage = { name: "notify_slack"; url: string; message?: string };
 type NotifyResponse = { ok: true } | { ok: false; error: string };
@@ -55,17 +55,17 @@ function tabsQuery(queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>
   return new Promise((resolve) => chrome.tabs.query(queryInfo, resolve));
 }
 
-function renderDestination(state: WebhookState): void {
+function renderDestination(state: DestinationState): void {
   const destination = $("destination");
-  const active = state.webhooks.find((w) => w.id === state.activeWebhookId);
+  const active = state.destinations.find((d) => d.id === state.activeDestinationId);
   destination.textContent = active ? active.name : "未設定";
 }
 
-function renderWebhookSelect(state: WebhookState): void {
-  const select = $("webhook-select") as HTMLSelectElement;
+function renderDestinationSelect(state: DestinationState): void {
+  const select = $("destination-select") as HTMLSelectElement;
   select.innerHTML = "";
 
-  if (state.webhooks.length === 0) {
+  if (state.destinations.length === 0) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = "（未設定）";
@@ -75,23 +75,41 @@ function renderWebhookSelect(state: WebhookState): void {
   }
 
   select.disabled = false;
-  for (const w of state.webhooks) {
+  for (const d of state.destinations) {
     const option = document.createElement("option");
-    option.value = w.id;
-    option.textContent = w.name;
+    option.value = d.id;
+    option.textContent = d.name;
     select.append(option);
   }
-  if (state.activeWebhookId) select.value = state.activeWebhookId;
+  if (state.activeDestinationId) select.value = state.activeDestinationId;
 }
 
-function fillWebhookEditor(state: WebhookState, id: string | null): void {
-  const nameInput = $("webhook-name") as HTMLInputElement;
-  const urlInput = $("webhook-url") as HTMLInputElement;
-  const deleteButton = $("delete-webhook") as HTMLButtonElement;
+function fillDestinationEditor(state: DestinationState, id: string | null): void {
+  const nameInput = $("destination-name") as HTMLInputElement;
+  const workerUrlInput = $("worker-url") as HTMLInputElement;
+  const channelSelect = $("channel-select") as HTMLSelectElement;
+  const deleteButton = $("delete-destination") as HTMLButtonElement;
 
-  const active = id ? state.webhooks.find((w) => w.id === id) : undefined;
+  const active = id ? state.destinations.find((d) => d.id === id) : undefined;
   nameInput.value = active?.name ?? "";
-  urlInput.value = active?.url ?? "";
+  workerUrlInput.value = active?.workerUrl ?? "";
+
+  channelSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "（未選択）";
+  channelSelect.append(placeholder);
+
+  if (active?.channelId) {
+    const opt = document.createElement("option");
+    opt.value = active.channelId;
+    opt.textContent = `現在の設定: ${active.channelId}`;
+    channelSelect.append(opt);
+    channelSelect.value = active.channelId;
+  } else {
+    channelSelect.value = "";
+  }
+
   deleteButton.disabled = !active;
 }
 
@@ -113,18 +131,18 @@ async function main(): Promise<void> {
   const messageInput = $("message") as HTMLTextAreaElement;
   const currentUrlEl = $("current-url");
 
-  let editingWebhookId: string | null = null;
-  let webhookState = await initWebhookStateIfNeeded(config.webHookUrl);
+  let editingDestinationId: string | null = null;
+  let destinationState = await initDestinationStateIfNeeded();
 
-  const refreshSettingsUi = (state: WebhookState): void => {
-    webhookState = state;
-    renderWebhookSelect(state);
+  const refreshSettingsUi = (state: DestinationState): void => {
+    destinationState = state;
+    renderDestinationSelect(state);
     renderDestination(state);
-    editingWebhookId = state.activeWebhookId;
-    fillWebhookEditor(state, editingWebhookId);
+    editingDestinationId = state.activeDestinationId;
+    fillDestinationEditor(state, editingDestinationId);
   };
 
-  refreshSettingsUi(webhookState);
+  refreshSettingsUi(destinationState);
 
   const currentUrl = await loadCurrentTabUrl();
   currentUrlEl.textContent = currentUrl ?? "（このタブのURLを取得できません）";
@@ -136,49 +154,128 @@ async function main(): Promise<void> {
     setStatus("denyList に該当するため送信できません", "error");
   }
 
-  $("webhook-select").addEventListener("change", async (event) => {
+  $("destination-select").addEventListener("change", async (event) => {
     const select = event.currentTarget as HTMLSelectElement;
     const id = select.value;
     if (!id) return;
-    await setActiveWebhookId(id);
-    webhookState = { ...webhookState, activeWebhookId: id };
-    editingWebhookId = id;
-    renderDestination(webhookState);
-    fillWebhookEditor(webhookState, editingWebhookId);
+    await setActiveDestinationId(id);
+    destinationState = { ...destinationState, activeDestinationId: id };
+    editingDestinationId = id;
+    renderDestination(destinationState);
+    fillDestinationEditor(destinationState, editingDestinationId);
     setStatus("送信先を切り替えました");
   });
 
-  $("new-webhook").addEventListener("click", () => {
-    editingWebhookId = null;
-    fillWebhookEditor(webhookState, null);
-    setStatus("新規Webhookを入力してください");
+  $("new-destination").addEventListener("click", () => {
+    editingDestinationId = null;
+    fillDestinationEditor(destinationState, null);
+    setStatus("新規送信先を入力してください");
   });
 
-  $("save-webhook").addEventListener("click", async () => {
-    const nameInput = $("webhook-name") as HTMLInputElement;
-    const urlInput = $("webhook-url") as HTMLInputElement;
+  $("open-access-login").addEventListener("click", async () => {
+    const workerUrlInput = $("worker-url") as HTMLInputElement;
+    const workerUrl = workerUrlInput.value.trim().replace(/\/+$/, "");
+    if (!workerUrl) {
+      setStatus("Worker URL を入力してください", "error");
+      return;
+    }
+    chrome.tabs.create({ url: workerUrl });
+  });
 
-    const name = nameInput.value.trim();
-    const url = urlInput.value.trim();
-    if (!url) {
-      setStatus("Webhook URL を入力してください", "error");
+  $("load-channels").addEventListener("click", async () => {
+    const workerUrlInput = $("worker-url") as HTMLInputElement;
+    const channelSelect = $("channel-select") as HTMLSelectElement;
+
+    const workerUrl = workerUrlInput.value.trim().replace(/\/+$/, "");
+    if (!workerUrl) {
+      setStatus("Worker URL を入力してください", "error");
       return;
     }
 
-    const next = await upsertWebhook({ id: editingWebhookId ?? undefined, name, url });
+    setStatus("Channel 読み込み中...");
+    channelSelect.disabled = true;
+
+    try {
+      const response = await fetch(`${workerUrl}/api/channels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+
+      if (response.status === 401) {
+        throw new Error("Cloudflare Access にログインしてください（ログインボタン）");
+      }
+
+      const data = (await response.json()) as
+        | { ok: true; channels: Array<{ id: string; name: string }> }
+        | { ok: false; error: string };
+
+      if (!response.ok || !data.ok) {
+        const message =
+          "error" in data ? data.error : `HTTP ${response.status}`;
+        throw new Error(message);
+      }
+
+      channelSelect.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "（未選択）";
+      channelSelect.append(placeholder);
+
+      for (const c of data.channels) {
+        const option = document.createElement("option");
+        option.value = c.id;
+        option.textContent = `#${c.name}`;
+        channelSelect.append(option);
+      }
+
+      setStatus("Channel を読み込みました");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(message, "error");
+    } finally {
+      channelSelect.disabled = false;
+    }
+  });
+
+  $("save-destination").addEventListener("click", async () => {
+    const nameInput = $("destination-name") as HTMLInputElement;
+    const workerUrlInput = $("worker-url") as HTMLInputElement;
+    const channelSelect = $("channel-select") as HTMLSelectElement;
+
+    const name = nameInput.value.trim();
+    const workerUrl = workerUrlInput.value.trim();
+    const channelId = channelSelect.value.trim();
+
+    if (!workerUrl) {
+      setStatus("Worker URL を入力してください", "error");
+      return;
+    }
+    if (!channelId) {
+      setStatus("Channel を選択してください（再読込で一覧取得）", "error");
+      return;
+    }
+
+    const next = await upsertDestination({
+      id: editingDestinationId ?? undefined,
+      name,
+      workerUrl,
+      channelId,
+    });
     refreshSettingsUi(next);
     setStatus("保存しました");
   });
 
-  $("delete-webhook").addEventListener("click", async () => {
-    if (!editingWebhookId) return;
-    const active = webhookState.webhooks.find((w) => w.id === editingWebhookId);
+  $("delete-destination").addEventListener("click", async () => {
+    if (!editingDestinationId) return;
+    const active = destinationState.destinations.find((d) => d.id === editingDestinationId);
     if (!active) return;
 
-    const ok = window.confirm(`Webhook「${active.name}」を削除しますか？`);
+    const ok = window.confirm(`送信先「${active.name}」を削除しますか？`);
     if (!ok) return;
 
-    const next = await deleteWebhook(editingWebhookId);
+    const next = await deleteDestination(editingDestinationId);
     refreshSettingsUi(next);
     setStatus("削除しました");
   });
@@ -223,4 +320,3 @@ void main().catch((error: unknown) => {
     // ignore
   }
 });
-

@@ -1,4 +1,5 @@
 node_modules/
 dist/
 *.tsbuildinfo
-
+worker/node_modules/
+worker/.wrangler/

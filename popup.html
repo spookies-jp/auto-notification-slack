@@ -61,33 +61,43 @@
         role="tabpanel"
         aria-labelledby="tab-settings"
       >
-        <label class="label-block" for="webhook-select">Webhook（切り替え）</label>
-        <select id="webhook-select" class="select"></select>
+        <label class="label-block" for="destination-select">送信先（切り替え）</label>
+        <select id="destination-select" class="select"></select>
 
         <div class="grid">
           <div>
-            <label class="label-block" for="webhook-name">名前</label>
-            <input id="webhook-name" class="input" type="text" placeholder="例: Dev / Prod" />
+            <label class="label-block" for="destination-name">名前</label>
+            <input id="destination-name" class="input" type="text" placeholder="例: Dev / Prod" />
           </div>
           <div>
-            <label class="label-block" for="webhook-url">Webhook URL</label>
+            <label class="label-block" for="worker-url">Worker URL</label>
             <input
-              id="webhook-url"
+              id="worker-url"
               class="input"
               type="url"
-              placeholder="https://hooks.slack.com/services/..."
+              placeholder="https://xxxx.workers.dev"
             />
           </div>
         </div>
 
+        <button id="open-access-login" class="button" type="button">
+          Cloudflare Access にログイン
+        </button>
+
+        <label class="label-block" for="channel-select">Channel</label>
+        <div class="row-inline">
+          <select id="channel-select" class="select"></select>
+          <button id="load-channels" class="button" type="button">再読込</button>
+        </div>
+
         <div class="buttons">
-          <button id="new-webhook" class="button" type="button">新規</button>
-          <button id="save-webhook" class="button primary" type="button">保存</button>
-          <button id="delete-webhook" class="button danger" type="button">削除</button>
+          <button id="new-destination" class="button" type="button">新規</button>
+          <button id="save-destination" class="button primary" type="button">保存</button>
+          <button id="delete-destination" class="button danger" type="button">削除</button>
         </div>
 
         <div class="hint">
-          設定はブラウザに永続化されます（この端末の Chrome プロフィール内）。
+          先に Cloudflare Access にログインしてから、Channel を再読込して選択してください。設定はブラウザに永続化されます。
         </div>
       </section>
     </main>
@@ -95,4 +105,3 @@
     <script type="module" src="dist/popup.js"></script>
   </body>
 </html>
-

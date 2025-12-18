@@ -1,6 +1,4 @@
-export const config: { webHookUrl?: string; denyList: string[] } = {
-  // Backward-compatible fallback (can be overridden via the popup Settings tab)
-  webHookUrl: "your_webhook_url",
+export const config: { denyList: string[] } = {
   denyList: ["example.com"],
 };
 
