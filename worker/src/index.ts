@@ -136,6 +136,13 @@ export default {
         if (!channel) return json({ ok: false, error: "channel is required" }, request, { status: 400 });
         if (!urlToSend) return json({ ok: false, error: "url is required" }, request, { status: 400 });
 
+        // 公開チャンネルに自動参加（既に参加済みでもエラーにならない）
+        await slackApi<SlackApiResponse>(env.SLACK_BOT_TOKEN, "conversations.join", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ channel }),
+        });
+
         const result = await slackApi<SlackApiResponse>(env.SLACK_BOT_TOKEN, "chat.postMessage", {
           method: "POST",
           headers: { "content-type": "application/json" },

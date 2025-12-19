@@ -1,10 +1,10 @@
 {
     "name": "Auto Notifier Slack",
     "description": "アクセスしたURLをSlackに通知する",
-    "version": "0.1.2",
+    "version": "1.0.0",
     "manifest_version": 3,
-    "permissions": ["storage", "activeTab", "tabs"],
-    "host_permissions": ["https://*.workers.dev/*"],
+    "permissions": ["storage", "activeTab", "tabs", "cookies"],
+    "host_permissions": ["https://*/*"],
     "action": {
         "default_title": "Send to Slack",
         "default_popup": "popup.html"
