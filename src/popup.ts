@@ -8,7 +8,11 @@ import {
 } from "./destinationStore.js";
 
 type NotifySlackMessage = { name: "notify_slack"; url: string; message?: string };
+type FetchChannelsMessage = { name: "fetch_channels"; workerUrl: string };
 type NotifyResponse = { ok: true } | { ok: false; error: string };
+type FetchChannelsResponse =
+  | { ok: true; channels: Array<{ id: string; name: string }> }
+  | { ok: false; error: string };
 
 function $(id: string): HTMLElement {
   const element = document.getElementById(id);
@@ -179,7 +183,8 @@ async function main(): Promise<void> {
       setStatus("Worker URL を入力してください", "error");
       return;
     }
-    chrome.tabs.create({ url: workerUrl });
+    // 新しいウィンドウで開く（popupが閉じないようにするため）
+    chrome.windows.create({ url: workerUrl, type: "popup", width: 500, height: 600 });
   });
 
   $("load-channels").addEventListener("click", async () => {
@@ -196,25 +201,16 @@ async function main(): Promise<void> {
     channelSelect.disabled = true;
 
     try {
-      const response = await fetch(`${workerUrl}/api/channels`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({}),
+      const response = await runtimeSendMessage<FetchChannelsMessage, FetchChannelsResponse>({
+        name: "fetch_channels",
+        workerUrl,
       });
 
-      if (response.status === 401) {
-        throw new Error("Cloudflare Access にログインしてください（ログインボタン）");
+      if (!response || typeof response !== "object" || !("ok" in response)) {
+        throw new Error("Unexpected response");
       }
-
-      const data = (await response.json()) as
-        | { ok: true; channels: Array<{ id: string; name: string }> }
-        | { ok: false; error: string };
-
-      if (!response.ok || !data.ok) {
-        const message =
-          "error" in data ? data.error : `HTTP ${response.status}`;
-        throw new Error(message);
+      if (!response.ok) {
+        throw new Error(response.error);
       }
 
       channelSelect.innerHTML = "";
@@ -223,7 +219,7 @@ async function main(): Promise<void> {
       placeholder.textContent = "（未選択）";
       channelSelect.append(placeholder);
 
-      for (const c of data.channels) {
+      for (const c of response.channels) {
         const option = document.createElement("option");
         option.value = c.id;
         option.textContent = `#${c.name}`;
