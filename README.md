@@ -26,6 +26,7 @@ Slack 側で App を作成して、Bot Token で投稿できるようにしま�
 2. OAuth & Permissions で Bot Token Scopes を追加
    - `chat:write`
    - `channels:read`（拡張の設定画面でチャンネル一覧を読むため）
+   - `channels:join`（公開チャンネルに自動参加するため）
 3. Install App to Workspace
 4. Bot User OAuth Token（`xoxb-...`）を控える
 
